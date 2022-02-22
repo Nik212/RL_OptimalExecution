@@ -19,8 +19,6 @@ class TradingEnvironment(gym.Env):
         #self.action_space = spaces.Discrete(3)
         self.reset()
 
-        
-
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
@@ -28,13 +26,13 @@ class TradingEnvironment(gym.Env):
     def step(self, action):
         """Returns state observation, reward, done and info"""
         #assert self.action_space.contains(action), '{} {} invalid'.format(action, type(action))
-        obs, done = self.datahandler.take_step()
-        reward, state, info = self.simulator.take_step(action)
+        #obs, done = self.datahandler.take_step()
+        reward, state, info, done = self.simulator.take_step(action)
         
-        return state, reward, done, info
+        return state, reward, info, done
 
     def reset(self):
-        """Resets DataHandler and TradingSimulator; returns first observation"""
-        self.datahandler.reset()
-        self.simulator.reset()
-        return self.datahandler.take_step()[0]
+        """Resets DataHandler and TradingSimulator; returns first state"""
+        #self.datahandler.reset()
+        #self.simulator.reset()
+        return self.simulator.reset()#self.datahandler.take_step()[0]
