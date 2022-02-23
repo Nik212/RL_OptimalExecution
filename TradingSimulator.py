@@ -16,7 +16,8 @@ class TradingSimulator:
         self.step = 0
         self.prices = np.zeros(self.steps)
         self.actions = np.zeros(self.steps)
-        self.strategy_costs = np.ones(self.steps)
+        self.execution_prices = np.zeros(self.steps)
+        self.strategy_costs = np.zeros(self.steps)
         self.inventory = self.X_0
 
     def reset(self):
@@ -25,12 +26,14 @@ class TradingSimulator:
         self.prices.fill(0)
         self.strategy_costs.fill(0)
         self.inventory = self.X_0
-
+        self.execution_prices.fill(0)
         return np.array([np.log(self.datahandler.data[0]), self.inventory, self.steps])
     
     def constraint_(self, action):
-        C = 100000
-        if action <= 0:
+        C = 10
+        if action <= 0.0:
+            return (abs(action)+1)*C
+        if np.sum(self.actions) > self.X_0:
             return (abs(action)+1)*C
         #if self.step == self.steps-1 and not isclose(np.sum(self.actions),self.X_0):
         #    return (abs(action)+1)*C
@@ -39,7 +42,7 @@ class TradingSimulator:
         return action
 
     def take_step(self, action):
-        actions_percent = action/self.inventory
+        #action = np.round(action, 1)
         if self.step == self.steps-1 and isclose(np.sum(self.actions[:self.steps - 1]),self.X_0):
             
             action = 0
@@ -50,7 +53,7 @@ class TradingSimulator:
             self.prices[self.step] = self.datahandler.data[self.step]
 
             reward = 0
-
+            self.execution_prices[self.step] = self.prices[self.step]
             self.strategy_costs[self.step] = reward
             state = np.array([
                     self.prices[self.step] - self.prices[self.step-1],
@@ -66,17 +69,17 @@ class TradingSimulator:
             return reward, state, info, done
         
         if self.step == self.steps-1 and (not isclose(np.sum(self.actions[:self.steps - 1]),self.X_0)):
-            C = 10000            
+            C = 10            
             action = (abs(action)+1)*C
 
             self.actions[self.step] = 0
             self.inventory -= 0
             
             self.prices[self.step] = self.datahandler.data[self.step]
-
+            self.execution_prices[self.step] = self.prices[self.step]
             reward = -((self.prices[self.step]+action/(2*self.q)))*(abs(action)+1)*C
 
-            self.strategy_costs[self.step] = reward
+            self.strategy_costs[self.step] = 0
 
             state = np.array([
                     self.prices[self.step] - self.prices[self.step-1],
@@ -93,12 +96,17 @@ class TradingSimulator:
 
         self.actions[self.step] = action
         self.inventory -= action
-
+        #self.theta = 0
         sum_ = np.sum([self.actions[i]*self.kappa*np.exp(-self.rho*self.taus[self.step]*(self.step - i)) for i in range(self.step)])
         self.prices[self.step] = self.datahandler.data[self.step] + self.lambda_*np.sum(self.actions[:self.step]) + self.spread/2 + sum_
 
-        reward = -((self.prices[self.step]+action/(2*self.q)))*self.constraint_(action)
+        self.execution_prices[self.step] = self.prices[self.step]+action/(2*self.q)
+
+        reward = -self.execution_prices[self.step]*self.constraint_(action)
+        #self.execution_prices[self.step] = self.prices[self.step]+action/(2*self.q)
         self.strategy_costs[self.step] = reward
+        #if self.step > 0:
+            #reward = np.mean(self.strategy_costs[:self.step])
         
         if self.step == 0:
              state = np.array([
